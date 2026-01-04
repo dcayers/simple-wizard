@@ -1,0 +1,38 @@
+# Source files (dist is published)
+src/
+.storybook/
+
+# Config files
+*.config.ts
+*.config.js
+tsconfig.json
+biome.json
+
+# Test files
+coverage/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/*.stories.tsx
+
+# Development
+node_modules/
+storybook-static/
+.git/
+.github/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+
+# Misc
+.cache/
+tmp/
+temp/
