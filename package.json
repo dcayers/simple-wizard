@@ -92,6 +92,6 @@
   },
   "lint-staged": {
     "*.{js,ts,tsx,jsx}": ["biome check --write"],
-    "*.{json,md,yml,yaml}": ["biome format --write"]
+    "*.{json}": ["biome format --write"]
   }
 }
