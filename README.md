@@ -192,6 +192,76 @@ function StepButtons() {
 }
 ```
 
+## Using with Form Libraries
+
+`simple-wizard` is form-library agnostic. You can use it with any form library you like, such as `react-hook-form`, `formik`, `@tanstack/react-form`, etc. 
+
+Use `setStepAction()` to integrate validation:
+
+### Using `react-hook-form`
+
+```tsx
+import { useForm } from "react-hook-form";
+
+function StepWithValidation() {
+  const { register, trigger } = useForm();
+  const { setStepAction } = useWizard((state) => ({
+    setStepAction: state.setStepAction,
+  }));
+
+
+  useEffect(() => {
+    setStepAction(async () => {
+      const valid = await trigger();
+      if (!valid) {
+        throw new Error("Form is invalid");
+      }
+    });
+  }, [setStepAction, trigger]);
+
+  return (
+    <input {...register("email", { required: true })} placeholder="Email" />
+  );
+}
+```
+
+
+### Using `@tanstack/react-form`
+
+```tsx
+import { useForm } from "@tanstack/react-form";
+
+function StepWithValidation() {
+  const form = useForm({
+    defaultValues: {
+      email: "",
+    },
+  });
+  const { setStepAction } = useWizard((state) => ({
+    setStepAction: state.setStepAction,
+  }));
+
+  useEffect(() => {
+    setStepAction(async () => {
+      await form.validateAllFields("change");
+      if (!form.state.isFormValid) {
+        throw new Error("Form is invalid");
+      }
+    });
+  }, [setStepAction, form]);
+
+  return (
+    <form.Field name="email">
+      {({ field }) => (
+        <input {...field.getInputProps()} placeholder="Email" />
+      )}
+    </form.Field>
+  )
+}
+```
+
+A more advanced example using `@tanstack/react-form` can be found in [this stackblitz](https://stackblitz.com/edit/example-d1os-wizard-rhf-ttsg3fvk).
+
 ## React 19 Best Practices
 
 This library is fully compatible with React 19. Here are patterns to leverage React 19 features in your step components:
