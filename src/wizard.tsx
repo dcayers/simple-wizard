@@ -1,8 +1,8 @@
 "use client";
-import { Children, isValidElement, useMemo, type ReactNode } from "react";
-import { Content } from "./components/content";
-import { Provider, StepCountSync } from "./context";
 import { enableMapSet } from "immer";
+import { Children, type ReactNode, isValidElement, useMemo } from "react";
+import { Content } from "./components/content";
+import { Provider, StepChangeNotifier, StepCountSync } from "./context";
 
 enableMapSet();
 
@@ -12,6 +12,7 @@ export interface Props {
   children?: ReactNode;
   startAtEnd?: boolean;
   initialStep?: number;
+  onStepChange?: (step: number) => void;
 }
 
 export function Wizard({
@@ -20,6 +21,7 @@ export function Wizard({
   children,
   startAtEnd = false,
   initialStep = 0,
+  onStepChange,
 }: Props) {
   const steps = useMemo(() => {
     return Children.toArray(children).filter((child) => {
@@ -27,7 +29,7 @@ export function Wizard({
       if (isValidElement(child) && child.props?.skip) return false;
       return true;
     });
-  }, [children])
+  }, [children]);
 
   const stepCount = steps.length;
 
@@ -39,6 +41,7 @@ export function Wizard({
       }}
     >
       <StepCountSync stepCount={stepCount} />
+      {onStepChange && <StepChangeNotifier onStepChange={onStepChange} />}
       {header}
       <Content steps={steps} />
       {footer}

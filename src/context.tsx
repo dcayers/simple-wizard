@@ -1,16 +1,20 @@
-import { createContext, type ReactNode, useContext, useEffect, useRef } from "react";
-import { useStore } from "zustand";
 import {
-  createWizardStore,
+  type ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+} from "react";
+import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
+import {
+  type State,
   type Store,
   type StoreApi,
-  type State,
+  createWizardStore,
 } from "./store";
-import { useShallow } from "zustand/react/shallow";
 
-export const Context = createContext<
-  StoreApi | undefined
->(undefined);
+export const Context = createContext<StoreApi | undefined>(undefined);
 
 export const Provider = ({
   children,
@@ -25,14 +29,12 @@ export const Provider = ({
   }
 
   return (
-    <Context.Provider value={storeRef.current}>
-      {children}
-    </Context.Provider>
+    <Context.Provider value={storeRef.current}>{children}</Context.Provider>
   );
 };
 
-export const useWizard = <T extends Partial<Store>>(
-  selector: (store: Store & { isFirstStep: boolean; isLastStep: boolean }) => T,
+export const useWizard = <T,>(
+  selector: (store: Store & { isFirstStep: boolean; isLastStep: boolean }) => T
 ) => {
   const context = useContext(Context);
   if (!context) {
@@ -45,11 +47,31 @@ export const useWizard = <T extends Partial<Store>>(
         ...store,
         isFirstStep: store.activeStep === 0,
         isLastStep: store.activeStep >= store.stepCount - 1,
-      }
+      };
 
-      return selector(extended)
-    }),
+      return selector(extended);
+    })
   );
+};
+
+/**
+ * Internal component to notify when the active step changes.
+ */
+export const StepChangeNotifier = ({
+  onStepChange,
+}: { onStepChange: (step: number) => void }) => {
+  const activeStep = useWizard((state) => state.activeStep);
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    onStepChange(activeStep);
+  }, [activeStep, onStepChange]);
+
+  return null;
 };
 
 /**
@@ -57,12 +79,13 @@ export const useWizard = <T extends Partial<Store>>(
  * This handles cases where steps are conditionally skipped.
  */
 export const StepCountSync = ({ stepCount }: { stepCount: number }) => {
-  const { currentStepCount, setStepCount, activeStep, setActiveStep } = useWizard((state) => ({
-    currentStepCount: state.stepCount,
-    setStepCount: state.setStepCount,
-    activeStep: state.activeStep,
-    setActiveStep: state.setActiveStep,
-  }));
+  const { currentStepCount, setStepCount, activeStep, setActiveStep } =
+    useWizard((state) => ({
+      currentStepCount: state.stepCount,
+      setStepCount: state.setStepCount,
+      activeStep: state.activeStep,
+      setActiveStep: state.setActiveStep,
+    }));
 
   useEffect(() => {
     if (stepCount !== currentStepCount) {
