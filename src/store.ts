@@ -70,6 +70,7 @@ export const createWizardStore = (
     ...initialState,
     nextStep: (skip = 1) => {
       const current = getState();
+      if (current.isLoading) return;
       if (current.activeStep < current.stepCount - skip) {
         const result = current.stepAction();
         if (isPromise(result)) {
@@ -109,7 +110,12 @@ export const createWizardStore = (
       setState({ stepAction: handler } as Partial<State>);
     },
     setIsLoading: (isLoading) => setState({ isLoading }),
-    setActiveStep: (activeStep) => setState({ activeStep }),
+    setActiveStep: (activeStep) => {
+      const { stepCount } = getState();
+      setState({
+        activeStep: Math.max(0, Math.min(activeStep, stepCount - 1)),
+      });
+    },
     setStepCount: (stepCount) => setState({ stepCount }),
     setNextButtonLabel: (nextButtonLabel) => setState({ nextButtonLabel }),
     setPreviousButtonLabel: (previousButtonLabel) =>

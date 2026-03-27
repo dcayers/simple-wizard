@@ -110,23 +110,21 @@ export const StepChangeNotifier = ({
  * This handles cases where steps are conditionally skipped.
  */
 export const StepCountSync = ({ stepCount }: { stepCount: number }) => {
-  const { currentStepCount, setStepCount, activeStep, setActiveStep } =
-    useWizard((state) => ({
-      currentStepCount: state.stepCount,
-      setStepCount: state.setStepCount,
-      activeStep: state.activeStep,
-      setActiveStep: state.setActiveStep,
-    }));
+  const store = useContext(Context);
+  const { currentStepCount, activeStep } = useWizard((state) => ({
+    currentStepCount: state.stepCount,
+    activeStep: state.activeStep,
+  }));
 
   useEffect(() => {
-    if (stepCount !== currentStepCount) {
-      setStepCount(stepCount);
-      // If current step is now out of bounds, clamp it
-      if (activeStep >= stepCount) {
-        setActiveStep(Math.max(0, stepCount - 1));
-      }
+    if (store && stepCount !== currentStepCount) {
+      store.setState({
+        stepCount,
+        activeStep:
+          activeStep >= stepCount ? Math.max(0, stepCount - 1) : activeStep,
+      });
     }
-  }, [stepCount, currentStepCount, setStepCount, activeStep, setActiveStep]);
+  }, [store, stepCount, currentStepCount, activeStep]);
 
   return null;
 };
