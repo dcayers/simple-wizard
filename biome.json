@@ -7,7 +7,13 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["node_modules", "dist", "storybook-static", "coverage"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      "storybook-static",
+      "coverage",
+      "package-lock.json"
+    ]
   },
   "formatter": {
     "enabled": true,

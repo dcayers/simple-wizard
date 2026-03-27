@@ -1,8 +1,3 @@
-import { createStore, type StateCreator } from "zustand/vanilla";
-import { immer } from "zustand/middleware/immer";
-
-type Mutators = [["zustand/immer", never]];
-
 export interface State {
   activeStep: number;
   stepCount: number;
@@ -27,76 +22,107 @@ export interface Actions {
 
 export type Store = State & Actions;
 
-const DEFAULT_STEP_ACTION = () => { };
+const DEFAULT_STEP_ACTION = () => {};
 
 function isPromise(value: unknown): value is Promise<void> {
   return value instanceof Promise;
 }
 
-const createStateSlice: StateCreator<Store, Mutators, [], Store> = (
-  set,
-  get,
-) => ({
-  activeStep: 0,
-  stepCount: 0,
-  isLoading: false,
-  nextButtonLabel: "Next",
-  previousButtonLabel: "Back",
-  isNextButtonDisabled: false,
-  stepAction: DEFAULT_STEP_ACTION,
-  nextStep: (skip = 1) => {
-    const state = get();
-    if (state.activeStep < state.stepCount - skip) {
-      const result = state.stepAction();
-      if (isPromise(result)) {
-        set({ isLoading: true });
-        result
-          .then(() => {
-            set((state) => {
-              state.activeStep += skip;
-              state.stepAction = DEFAULT_STEP_ACTION;
+export interface StoreApi {
+  getState: () => Store;
+  setState: (partial: Partial<State>) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+export const createWizardStore = (
+  initialState: Partial<State> = {}
+): StoreApi => {
+  const listeners = new Set<() => void>();
+
+  const notify = () => {
+    for (const listener of listeners) {
+      listener();
+    }
+  };
+
+  const setState = (partial: Partial<State>) => {
+    state = { ...state, ...partial };
+    notify();
+  };
+
+  const getState = () => state;
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  };
+
+  let state: Store = {
+    activeStep: 0,
+    stepCount: 0,
+    isLoading: false,
+    nextButtonLabel: "Next",
+    previousButtonLabel: "Back",
+    isNextButtonDisabled: false,
+    stepAction: DEFAULT_STEP_ACTION,
+    ...initialState,
+    nextStep: (skip = 1) => {
+      const current = getState();
+      if (current.isLoading) return;
+      if (current.activeStep < current.stepCount - skip) {
+        const result = current.stepAction();
+        if (isPromise(result)) {
+          setState({ isLoading: true });
+          result
+            .then(() => {
+              const s = getState();
+              setState({
+                activeStep: s.activeStep + skip,
+                stepAction: DEFAULT_STEP_ACTION,
+              });
+            })
+            .catch((error) => {
+              console.error("Error in stepAction:", error);
+            })
+            .finally(() => {
+              setState({ isLoading: false });
             });
-          })
-          .catch((error) => {
-            console.error("Error in stepAction:", error);
-          }).finally(() => {
-            set({ isLoading: false });
+        } else {
+          setState({
+            activeStep: current.activeStep + skip,
+            stepAction: DEFAULT_STEP_ACTION,
           });
-      } else {
-        set((state) => {
-          state.activeStep += skip;
-          state.stepAction = DEFAULT_STEP_ACTION;
+        }
+      }
+    },
+    previousStep: (skip = 1) => {
+      const current = getState();
+      if (current.activeStep - skip >= 0) {
+        setState({
+          activeStep: current.activeStep - skip,
+          stepAction: DEFAULT_STEP_ACTION,
         });
       }
-    }
-  },
-  previousStep: (skip = 1) =>
-    set((state) => {
-      if (state.activeStep - skip >= 0) {
-        state.stepAction = DEFAULT_STEP_ACTION;
-        state.activeStep -= skip;
-      }
-    }),
-  setStepAction: (handler) => {
-    set((state) => {
-      state.stepAction = handler;
-    });
-  },
-  setIsLoading: (isLoading) => set({ isLoading }),
-  setActiveStep: (activeStep) => set({ activeStep }),
-  setStepCount: (stepCount) => set({ stepCount }),
-  setNextButtonLabel: (nextButtonLabel) => set({ nextButtonLabel }),
-  setPreviousButtonLabel: (previousButtonLabel) => set({ previousButtonLabel }),
-  setNextButtonDisabled: (isNextButtonDisabled) =>
-    set({ isNextButtonDisabled }),
-});
+    },
+    setStepAction: (handler) => {
+      setState({ stepAction: handler } as Partial<State>);
+    },
+    setIsLoading: (isLoading) => setState({ isLoading }),
+    setActiveStep: (activeStep) => {
+      const { stepCount } = getState();
+      setState({
+        activeStep: Math.max(0, Math.min(activeStep, stepCount - 1)),
+      });
+    },
+    setStepCount: (stepCount) => setState({ stepCount }),
+    setNextButtonLabel: (nextButtonLabel) => setState({ nextButtonLabel }),
+    setPreviousButtonLabel: (previousButtonLabel) =>
+      setState({ previousButtonLabel }),
+    setNextButtonDisabled: (isNextButtonDisabled) =>
+      setState({ isNextButtonDisabled }),
+  };
 
-export const createWizardStore = (initialState = {}) =>
-  createStore(
-    immer<Store>((...args) => ({
-      ...createStateSlice(...args),
-      ...(initialState as State),
-    })),
-  );
-
-export type StoreApi = ReturnType<typeof createWizardStore>;
+  return { getState, setState, subscribe };
+};

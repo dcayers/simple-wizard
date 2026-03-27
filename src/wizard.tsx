@@ -1,10 +1,7 @@
 "use client";
-import { enableMapSet } from "immer";
 import { Children, type ReactNode, isValidElement, useMemo } from "react";
 import { Content } from "./components/content";
 import { Provider, StepChangeNotifier, StepCountSync } from "./context";
-
-enableMapSet();
 
 export interface Props {
   header?: ReactNode;
