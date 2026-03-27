@@ -19,7 +19,9 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "dev": "vite",
@@ -79,7 +81,14 @@
     "vite-plugin-dts": "^4.5.0",
     "vitest": "^3.0.4"
   },
-  "keywords": ["react", "wizard", "stepper", "multi-step", "form", "component"],
+  "keywords": [
+    "react",
+    "wizard",
+    "stepper",
+    "multi-step",
+    "form",
+    "component"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dcayers/simple-wizard.git"
@@ -89,7 +98,11 @@
     "access": "public"
   },
   "lint-staged": {
-    "*.{js,ts,tsx,jsx}": ["biome check --write"],
-    "*.{json}": ["biome format --write"]
+    "*.{js,ts,tsx,jsx}": [
+      "biome check --write"
+    ],
+    "*.{json}": [
+      "biome format --write"
+    ]
   }
 }
