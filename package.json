@@ -1,7 +1,7 @@
 {
   "name": "@d1os/simple-wizard",
   "author": "Dewaun Aayers",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A simple wizard component for React",
   "type": "module",
   "main": "./dist/simple-wizard.cjs",
