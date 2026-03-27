@@ -1,12 +1,12 @@
+"use client";
 import {
   type ReactNode,
   createContext,
   useContext,
   useEffect,
   useRef,
+  useSyncExternalStore,
 } from "react";
-import { useStore } from "zustand";
-import { useShallow } from "zustand/react/shallow";
 import {
   type State,
   type Store,
@@ -33,25 +33,54 @@ export const Provider = ({
   );
 };
 
+function shallowEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    a === null ||
+    b === null
+  )
+    return false;
+  const keysA = Object.keys(a as Record<string, unknown>);
+  const keysB = Object.keys(b as Record<string, unknown>);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (
+      !Object.prototype.hasOwnProperty.call(b, key) ||
+      !Object.is(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key]
+      )
+    )
+      return false;
+  }
+  return true;
+}
+
 export const useWizard = <T,>(
   selector: (store: Store & { isFirstStep: boolean; isLastStep: boolean }) => T
 ) => {
-  const context = useContext(Context);
-  if (!context) {
+  const store = useContext(Context);
+  if (!store) {
     throw new Error("useWizard must be used within a WizardProvider");
   }
-  return useStore(
-    context,
-    useShallow((store) => {
-      const extended = {
-        ...store,
-        isFirstStep: store.activeStep === 0,
-        isLastStep: store.activeStep >= store.stepCount - 1,
-      };
 
-      return selector(extended);
-    })
-  );
+  const cachedRef = useRef<T>();
+
+  return useSyncExternalStore(store.subscribe, () => {
+    const state = store.getState();
+    const next = selector({
+      ...state,
+      isFirstStep: state.activeStep === 0,
+      isLastStep: state.activeStep >= state.stepCount - 1,
+    });
+    if (shallowEqual(cachedRef.current, next)) {
+      return cachedRef.current as T;
+    }
+    cachedRef.current = next;
+    return next;
+  });
 };
 
 /**
@@ -62,14 +91,16 @@ export const StepChangeNotifier = ({
 }: { onStepChange: (step: number) => void }) => {
   const activeStep = useWizard((state) => state.activeStep);
   const isFirstRender = useRef(true);
+  const onStepChangeRef = useRef(onStepChange);
+  onStepChangeRef.current = onStepChange;
 
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    onStepChange(activeStep);
-  }, [activeStep, onStepChange]);
+    onStepChangeRef.current(activeStep);
+  }, [activeStep]);
 
   return null;
 };
