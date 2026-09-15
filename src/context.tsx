@@ -58,29 +58,42 @@ function shallowEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-export const useWizard = <T,>(
-  selector: (store: Store & { isFirstStep: boolean; isLastStep: boolean }) => T
-) => {
+type WizardSelector<T> = (
+  store: Store & { isFirstStep: boolean; isLastStep: boolean }
+) => T;
+
+function selectSnapshot<T>(
+  store: StoreApi,
+  selector: WizardSelector<T>,
+  cacheRef: { current: T | undefined }
+): T {
+  const state = store.getState();
+  const next = selector({
+    ...state,
+    isFirstStep: state.activeStep === 0,
+    isLastStep: state.activeStep >= state.stepCount - 1,
+  });
+  if (shallowEqual(cacheRef.current, next)) {
+    return cacheRef.current as T;
+  }
+  cacheRef.current = next;
+  return next;
+}
+
+export const useWizard = <T,>(selector: WizardSelector<T>) => {
   const store = useContext(Context);
   if (!store) {
     throw new Error("useWizard must be used within a WizardProvider");
   }
 
-  const cachedRef = useRef<T>();
+  const clientCacheRef = useRef<T>();
+  const serverCacheRef = useRef<T>();
 
-  return useSyncExternalStore(store.subscribe, () => {
-    const state = store.getState();
-    const next = selector({
-      ...state,
-      isFirstStep: state.activeStep === 0,
-      isLastStep: state.activeStep >= state.stepCount - 1,
-    });
-    if (shallowEqual(cachedRef.current, next)) {
-      return cachedRef.current as T;
-    }
-    cachedRef.current = next;
-    return next;
-  });
+  return useSyncExternalStore(
+    store.subscribe,
+    () => selectSnapshot(store, selector, clientCacheRef),
+    () => selectSnapshot(store, selector, serverCacheRef)
+  );
 };
 
 /**
@@ -111,20 +124,20 @@ export const StepChangeNotifier = ({
  */
 export const StepCountSync = ({ stepCount }: { stepCount: number }) => {
   const store = useContext(Context);
-  const { currentStepCount, activeStep } = useWizard((state) => ({
-    currentStepCount: state.stepCount,
-    activeStep: state.activeStep,
-  }));
+  const currentStepCount = useWizard((state) => state.stepCount);
 
   useEffect(() => {
     if (store && stepCount !== currentStepCount) {
+      const { activeStep } = store.getState();
       store.setState({
         stepCount,
-        activeStep:
-          activeStep >= stepCount ? Math.max(0, stepCount - 1) : activeStep,
+        activeStep: Math.min(
+          Math.max(0, activeStep),
+          Math.max(0, stepCount - 1)
+        ),
       });
     }
-  }, [store, stepCount, currentStepCount, activeStep]);
+  }, [store, stepCount, currentStepCount]);
 
   return null;
 };
