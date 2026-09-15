@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { Wizard, useWizard } from "./index";
 
@@ -80,6 +81,20 @@ function AsyncStepAction({ onAction }: { onAction: () => Promise<void> }) {
   });
 
   return <div>Async Step</div>;
+}
+
+function StateProbe() {
+  const { activeStep, isLoading } = useWizard((state) => ({
+    activeStep: state.activeStep,
+    isLoading: state.isLoading,
+  }));
+
+  return (
+    <div>
+      <span data-testid="active-step">{activeStep}</span>
+      <span data-testid="is-loading">{String(isLoading)}</span>
+    </div>
+  );
 }
 
 // =============================================================================
@@ -562,6 +577,152 @@ describe("Wizard", () => {
       );
 
       expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
+  // ===========================================================================
+  // Server Rendering Tests
+  // ===========================================================================
+
+  describe("server rendering", () => {
+    it("renders on the server without throwing and includes the first step", () => {
+      let html = "";
+
+      expect(() => {
+        html = renderToString(
+          <Wizard>
+            <div>Step 1 Content</div>
+            <div>Step 2 Content</div>
+          </Wizard>
+        );
+      }).not.toThrow();
+
+      expect(html).toContain("Step 1 Content");
+    });
+  });
+
+  // ===========================================================================
+  // keepMounted Tests
+  // ===========================================================================
+
+  describe("keepMounted", () => {
+    it("keeps only the active step in the DOM by default", () => {
+      render(
+        <Wizard>
+          <div>Step A</div>
+          <div>Step B</div>
+        </Wizard>
+      );
+
+      expect(screen.getByText("Step A")).toBeInTheDocument();
+      expect(screen.queryByText("Step B")).not.toBeInTheDocument();
+    });
+
+    it("keeps every step mounted and hides inactive ones when keepMounted is true", () => {
+      render(
+        <Wizard keepMounted>
+          <div>Step A</div>
+          <div>Step B</div>
+        </Wizard>
+      );
+
+      expect(screen.getByText("Step A")).toBeInTheDocument();
+      expect(screen.getByText("Step B")).toBeInTheDocument();
+      expect(screen.getByText("Step A").parentElement).not.toHaveAttribute(
+        "hidden"
+      );
+      expect(screen.getByText("Step B").parentElement).toHaveAttribute(
+        "hidden"
+      );
+    });
+  });
+
+  // ===========================================================================
+  // startAtEnd Edge Case Tests
+  // ===========================================================================
+
+  describe("startAtEnd with no children", () => {
+    it("clamps activeStep to 0 instead of -1", () => {
+      render(<Wizard startAtEnd footer={<StateProbe />} />);
+
+      expect(screen.getByTestId("active-step")).toHaveTextContent("0");
+    });
+  });
+
+  // ===========================================================================
+  // Async nextStep State Update Tests
+  // ===========================================================================
+
+  describe("async nextStep state updates", () => {
+    it("advances activeStep and clears isLoading together once the action resolves", async () => {
+      const user = userEvent.setup();
+
+      let resolveAction: () => void;
+      const asyncAction = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveAction = resolve;
+          })
+      );
+
+      render(
+        <Wizard
+          footer={
+            <>
+              <NavigationFooter />
+              <StateProbe />
+            </>
+          }
+        >
+          <AsyncStepAction onAction={asyncAction} />
+          <div>Step 2</div>
+        </Wizard>
+      );
+
+      await user.click(screen.getByText("Next"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("is-loading")).toHaveTextContent("true");
+      });
+      expect(screen.getByTestId("active-step")).toHaveTextContent("0");
+
+      resolveAction!();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("active-step")).toHaveTextContent("1");
+        expect(screen.getByTestId("is-loading")).toHaveTextContent("false");
+      });
+    });
+
+    it("does not advance activeStep and clears isLoading when the action rejects", async () => {
+      const user = userEvent.setup();
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const asyncAction = vi.fn(() => Promise.reject(new Error("boom")));
+
+      render(
+        <Wizard
+          footer={
+            <>
+              <NavigationFooter />
+              <StateProbe />
+            </>
+          }
+        >
+          <AsyncStepAction onAction={asyncAction} />
+          <div>Step 2</div>
+        </Wizard>
+      );
+
+      await user.click(screen.getByText("Next"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("active-step")).toHaveTextContent("0");
+        expect(screen.getByTestId("is-loading")).toHaveTextContent("false");
+      });
+
+      consoleError.mockRestore();
     });
   });
 });

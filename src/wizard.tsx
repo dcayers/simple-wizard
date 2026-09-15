@@ -10,6 +10,7 @@ export interface Props {
   startAtEnd?: boolean;
   initialStep?: number;
   onStepChange?: (step: number) => void;
+  keepMounted?: boolean;
 }
 
 export function Wizard({
@@ -19,6 +20,7 @@ export function Wizard({
   startAtEnd = false,
   initialStep = 0,
   onStepChange,
+  keepMounted = false,
 }: Props) {
   const steps = useMemo(() => {
     return Children.toArray(children).filter((child) => {
@@ -29,18 +31,25 @@ export function Wizard({
   }, [children]);
 
   const stepCount = steps.length;
+  const initialActiveStep = Math.max(
+    0,
+    startAtEnd ? stepCount - 1 : initialStep
+  );
 
   return (
     <Provider
       config={{
-        activeStep: startAtEnd ? stepCount - 1 : initialStep,
+        activeStep:
+          stepCount > 0
+            ? Math.min(initialActiveStep, stepCount - 1)
+            : initialActiveStep,
         stepCount,
       }}
     >
       <StepCountSync stepCount={stepCount} />
       {onStepChange && <StepChangeNotifier onStepChange={onStepChange} />}
       {header}
-      <Content steps={steps} />
+      <Content steps={steps} keepMounted={keepMounted} />
       {footer}
     </Provider>
   );

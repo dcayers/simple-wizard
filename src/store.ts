@@ -81,12 +81,11 @@ export const createWizardStore = (
               setState({
                 activeStep: s.activeStep + skip,
                 stepAction: DEFAULT_STEP_ACTION,
+                isLoading: false,
               });
             })
             .catch((error) => {
               console.error("Error in stepAction:", error);
-            })
-            .finally(() => {
               setState({ isLoading: false });
             });
         } else {
